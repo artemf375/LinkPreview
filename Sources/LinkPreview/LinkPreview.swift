@@ -3,6 +3,7 @@ import LinkPresentation
 
 public struct LinkPreview: View {
     let url: URL?
+    let useCache: Bool
     
     @State private var isPresented: Bool = false
     @State private var metaData: LPLinkMetadata? = nil
@@ -13,8 +14,9 @@ public struct LinkPreview: View {
     var titleLineLimit: Int = 3
     var type: LinkPreviewType = .auto
     
-    public init(url: URL?) {
+    public init(url: URL?, useCache: Bool = true) {
         self.url = url
+        self.useCache = useCache
     }
     
     public var body: some View {
@@ -66,11 +68,20 @@ public struct LinkPreview: View {
     }
     
     func getMetaData(url: URL) {
+        if let cachedMetadata = LPLinkMetadataCache.shared.getMetadata(forURL: url) {
+            self.metaData = cachedMetadata
+            return
+        }
         let provider = LPMetadataProvider()
         provider.startFetchingMetadata(for: url) { meta, err in
             guard let meta = meta else {return}
             withAnimation(.spring()) {
                 self.metaData = meta
+            }
+            if useCache {
+                DispatchQueue.main.async {
+                    LPLinkMetadataCache.shared.setMetadata(meta, forURL: url)
+                }
             }
         }
     }
